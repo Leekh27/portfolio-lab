@@ -3,7 +3,8 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Literal
+from datetime import date
 from dotenv import load_dotenv
 load_dotenv()
 BASE=Path(__file__).resolve().parent
@@ -45,6 +46,14 @@ def save(items:List[Holding]):
     if len(set(keys))!=len(keys):raise HTTPException(400,'중복 티커가 있습니다.')
     with conn() as c:
         init_db(c)
+        init_trades(c)
+        tracked={r[0] for r in c.execute('SELECT DISTINCT ticker FROM trades')}
+        old={r[0]:(float(r[1]),float(r[2])) for r in c.execute('SELECT ticker,qty,avg FROM holdings')}
+        new={x.ticker.upper():(x.qty,x.avg) for x in items}
+        for ticker in tracked:
+            a=old.get(ticker); b=new.get(ticker)
+            if (a is None)!=(b is None) or (a and (abs(a[0]-b[0])>1e-7 or abs(a[1]-b[1])>1e-7)):
+                raise HTTPException(409, '거래내역이 있는 종목은 거래 등록으로 수량/매수가를 변경하세요: '+ticker)
         c.execute('DELETE FROM holdings')
         with c.cursor() as cur:
             cur.executemany('INSERT INTO holdings VALUES(%s,%s,%s,%s)',[(x.ticker.upper(),x.qty,x.avg,x.price) for x in items])
@@ -70,6 +79,87 @@ def quotes(symbols:str=''):
                 out[t]=result;_cache[t]=(time.time(),result)
         return out
     except Exception as e:raise HTTPException(503,'외부 시세 제공자 연결 실패: '+str(e)[:180])
+
+
+# Search suggestions are an explicitly limited local dictionary, not a complete KRX listing.
+KR_NAMES = {
+ '삼성전자':'005930.KS','삼성전자우':'005935.KS','SK하이닉스':'000660.KS',
+ '현대차':'005380.KS','기아':'000270.KS','NAVER':'035420.KS',
+ '카카오':'035720.KS','LG에너지솔루션':'373220.KS','셀트리온':'068270.KS',
+ '삼성바이오로직스':'207940.KS','POSCO홀딩스':'005490.KS',
+ 'KODEX 미국S&P500':'379800.KS','TIGER 미국S&P500':'360750.KS',
+ '에코프로비엠':'247540.KQ','에코프로':'086520.KQ',
+ 'QQQ':'QQQ','QLD':'QLD','SPY':'SPY','VOO':'VOO','AAPL':'AAPL',
+ 'MSFT':'MSFT','NVDA':'NVDA','TSLA':'TSLA'
+}
+@app.get('/api/symbol-search')
+def symbol_search(q:str=''):
+    q=q.strip().casefold()
+    if not q or len(q)>60:return []
+    return [{'name':name,'ticker':ticker,'currency':'KRW' if ticker.endswith(('.KS','.KQ')) else 'USD'}
+            for name,ticker in KR_NAMES.items() if q in name.casefold() or q in ticker.casefold()][:12]
+
+class Trade(BaseModel):
+    ticker:str=Field(pattern=r'^[A-Za-z0-9.^-]{1,15}$')
+    side:Literal['BUY','SELL']
+    qty:float=Field(gt=0)
+    price:float=Field(gt=0)
+    fee:float=Field(default=0,ge=0)
+    traded_on:date
+
+def init_trades(c):
+    c.execute('''CREATE TABLE IF NOT EXISTS trades (
+      id BIGSERIAL PRIMARY KEY, ticker TEXT NOT NULL, side TEXT NOT NULL,
+      qty DOUBLE PRECISION NOT NULL, price DOUBLE PRECISION NOT NULL,
+      fee DOUBLE PRECISION NOT NULL DEFAULT 0, traded_on DATE NOT NULL,
+      is_opening BOOLEAN NOT NULL DEFAULT FALSE,
+      realized_pnl DOUBLE PRECISION NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())''')
+
+def seed_opening(c):
+    # Preserve every existing holding as an opening position once, without inventing historical trades.
+    if c.execute('SELECT 1 FROM trades LIMIT 1').fetchone():return
+    for t,q,a in c.execute('SELECT ticker,qty,avg FROM holdings').fetchall():
+        c.execute('INSERT INTO trades(ticker,side,qty,price,traded_on,is_opening) VALUES(%s,%s,%s,%s,%s,TRUE)',
+                  (t,'BUY',q,a,date.today()))
+
+@app.get('/api/trades')
+def get_trades():
+    with conn() as c:
+        init_db(c);init_trades(c)
+        rows=c.execute('SELECT id,ticker,side,qty,price,fee,traded_on,is_opening,realized_pnl FROM trades ORDER BY id DESC LIMIT 500').fetchall()
+        return [dict(zip(('id','ticker','side','qty','price','fee','traded_on','is_opening','realized_pnl'),r)) for r in rows]
+
+@app.post('/api/trades')
+def create_trade(trade:Trade):
+    ticker=trade.ticker.upper()
+    with conn() as c:
+        c.execute('SELECT pg_advisory_xact_lock(8540391)')
+        init_db(c);init_trades(c);seed_opening(c)
+        row=c.execute('SELECT qty,avg,price FROM holdings WHERE ticker=%s FOR UPDATE',(ticker,)).fetchone()
+        old_qty=float(row[0]) if row else 0.0
+        old_avg=float(row[1]) if row else 0.0
+        current=float(row[2]) if row else 0.0
+        realized=0.0
+        if trade.side=='BUY':
+            new_qty=old_qty+trade.qty
+            new_avg=(old_qty*old_avg+trade.qty*trade.price+trade.fee)/new_qty
+        else:
+            if trade.qty>old_qty+1e-8:raise HTTPException(400,'보유 수량보다 많이 매도할 수 없습니다.')
+            new_qty=max(0,old_qty-trade.qty)
+            new_avg=old_avg
+            realized=(trade.price-old_avg)*trade.qty-trade.fee
+        if new_qty<1e-8:
+            c.execute('DELETE FROM holdings WHERE ticker=%s',(ticker,))
+        else:
+            c.execute('''INSERT INTO holdings(ticker,qty,avg,price) VALUES(%s,%s,%s,%s)
+                ON CONFLICT(ticker) DO UPDATE SET qty=EXCLUDED.qty,avg=EXCLUDED.avg,price=EXCLUDED.price''',
+                (ticker,new_qty,new_avg,current))
+        c.execute('''INSERT INTO trades(ticker,side,qty,price,fee,traded_on,realized_pnl)
+                     VALUES(%s,%s,%s,%s,%s,%s,%s)''',
+                  (ticker,trade.side,trade.qty,trade.price,trade.fee,trade.traded_on,realized))
+        return {'ok':True,'ticker':ticker,'qty':new_qty,'avg':new_avg,'realized_pnl':realized,
+                'currency':'KRW' if ticker.endswith(('.KS','.KQ')) else 'USD'}
 
 @app.get('/api/fx')
 def fx():
