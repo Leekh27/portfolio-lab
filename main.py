@@ -83,6 +83,9 @@ def quotes(symbols:str=''):
 
 # Search suggestions are an explicitly limited local dictionary, not a complete KRX listing.
 KR_NAMES = {
+  '태광':'023160.KQ','우진':'105840.KS','세진중공업':'075580.KS',
+  'TIGER 미국우주테크':'0183J0.KS','RISE 글로벌AI낸드메모리반도체':'0233N0.KS',
+  '셀라스 라이프 사이언스 그룹':'SLS','SELLAS Life Sciences Group':'SLS',
  '삼성전자':'005930.KS','삼성전자우':'005935.KS','SK하이닉스':'000660.KS',
  '현대차':'005380.KS','기아':'000270.KS','NAVER':'035420.KS',
  '카카오':'035720.KS','LG에너지솔루션':'373220.KS','셀트리온':'068270.KS',
@@ -96,8 +99,9 @@ KR_NAMES = {
 def symbol_search(q:str=''):
     q=q.strip().casefold()
     if not q or len(q)>60:return []
-    return [{'name':name,'ticker':ticker,'currency':'KRW' if ticker.endswith(('.KS','.KQ')) else 'USD'}
-            for name,ticker in KR_NAMES.items() if q in name.casefold() or q in ticker.casefold()][:12]
+    matches=[{'name':name,'ticker':ticker,'currency':'KRW' if ticker.endswith(('.KS','.KQ')) else 'USD'}
+             for name,ticker in KR_NAMES.items() if q in name.casefold() or q in ticker.casefold()]
+    return matches[:12]
 
 class Trade(BaseModel):
     ticker:str=Field(pattern=r'^[A-Za-z0-9.^-]{1,15}$')
