@@ -15,7 +15,19 @@
 .hm-empty{display:grid;place-items:center;height:100%;padding:24px;text-align:center;color:#a7b5d1}
 .hm-note{color:#9eacc6;font-size:12px;margin-top:12px;line-height:1.65}
 @media(max-width:700px){#heatmap{height:410px}.heatmap-card{padding:14px}.hm-tile .hm-name{font-size:12px}.hm-tile .hm-return{font-size:14px}.hm-tile .hm-share{font-size:10px}}
-</style></head><body><header><div class="logo">◈ PORTFOLIO <span>LAB</span></div><div class="pill">● 개인 투자 대시보드</div></header><main><div class="eyebrow">INVESTMENT INTELLIGENCE</div><h1>내 포트폴리오 한눈에 보기</h1><div class="muted">보유 자산 분석 · 종목별 성과 · AI 리서치 스타일 리포트</div><div class="notice">서버 연결 버전 · 보유 정보는 Neon PostgreSQL에 저장됩니다. 시세는 Yahoo Finance 비공식 데이터(지연·오류 가능)를 조회하며, AI 분석은 API 키 설정 시 활성화됩니다.</div><div class="stats"><div class="card"><div class="muted">총 평가금액 (KRW)</div><div class="metric" id="total">—</div><div class="muted">보유 주식 현재 평가액</div></div><div class="card"><div class="muted">총 투자원금 (KRW)</div><div class="metric" id="cost">—</div><div class="muted">매수단가 × 수량</div></div><div class="card"><div class="muted">평가손익 (KRW)</div><div class="metric" id="pnl">—</div><div class="muted">수수료·세금 제외</div></div><div class="card"><div class="muted">총 수익률</div><div class="metric" id="roi">—</div><div class="muted">원금 대비 평가손익</div></div></div><section class="heatmap-card" aria-label="포트폴리오 수익률 트리맵"><div class="heatmap-head"><div><h2>포트폴리오 수익률 맵</h2><div class="muted">박스 면적 = 평가금액 비중 · 색상 = 매수가 대비 수익률</div></div><div class="heatmap-legend"><span><i style="background:#16876c"></i>수익</span><span><i style="background:#ba3e57"></i>손실</span><span><i style="background:#526079"></i>보합</span></div></div><div id="heatmap" role="img" aria-label="보유 종목 평가금액 비중과 수익률"></div><div class="hm-note" id="heatmapNote">시세 조회 전에는 박스가 표시되지 않습니다. 원화 환산은 현재 환율 기준이며 실제 환차손익과 다를 수 있습니다.</div></section><div class="layout"><section class="card"><h2>자산 구성 비율</h2><div class="muted">종목별 현재 평가금액 기준</div><div id="allocation" class="bar"></div><div id="legend" class="legend"></div></section><section class="card"><h2>종목별 평가손익</h2><div id="profitBars"></div></section></div><section class="card" style="margin-top:17px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h2>보유 종목</h2><div class="actions"><button class="secondary" onclick="refreshQuotes()">시세 갱신</button><button class="secondary" onclick="exportData()">데이터 내보내기</button><button class="secondary" onclick="document.getElementById('file').click()">불러오기</button><input id="file" type="file" accept="application/json" style="display:none" onchange="importData(event)"></div></div><div class="tablewrap"><table><thead><tr><th>종목</th><th>수량</th><th>평균 매수가</th><th>현재가</th><th>평가금액</th><th>수익률</th><th>관리</th></tr></thead><tbody id="holdings"></tbody></table></div></section><section class="card" style="margin-top:17px"><h2 id="formTitle">종목 추가</h2><div class="formgrid"><div><label>티커</label><input id="ticker" placeholder="QQQ / 005930.KS"></div><div><label>보유 수량</label><input id="qty" type="number" min="0.000001" step="any" placeholder="2"></div><div><label>평균 매수가 (종목 통화)</label><input id="avg" type="number" min="0.000001" step="any" placeholder="400"></div><div><label>현재가</label><input id="price" type="text" value="시세 자동 조회" disabled></div></div><div class="actions" style="margin-top:16px"><button onclick="saveHolding()" id="saveBtn">종목 저장</button><span class="muted" id="quoteStatus" role="status">현재가는 시세 제공자에서 자동 조회됩니다. 거래소 마감 후에는 종가가 표시될 수 있습니다.</span><button class="secondary" onclick="resetForm()">입력 초기화</button></div></section><section class="card" style="margin-top:17px"><h2>종목명 검색</h2><div class="muted">주요 종목 한글명 또는 티커를 검색하세요. 전체 상장종목 목록은 아닙니다.</div><div class="formgrid" style="margin-top:12px"><div><label>종목명 또는 코드</label><input id="symbolQuery" placeholder="현대차 / 삼성전자 / QQQ" oninput="searchSymbols()"></div><div><label>검색 결과</label><select id="symbolResults" onchange="selectSymbol()"><option value="">검색 후 선택</option></select></div></div><div class="muted" id="symbolHelp" style="margin-top:10px">검색 결과를 선택하면 종목 추가 및 거래 입력에 티커가 채워집니다.</div></section>
+
+/* v3.2: hover/focus/tap details, rendered above the heatmap without clipping */
+.hm-tile{cursor:pointer;outline-offset:-4px}
+.hm-tile:focus-visible{outline:3px solid #fff;z-index:2}
+.hm-tooltip{position:fixed;z-index:9999;max-width:min(310px,calc(100vw - 20px));min-width:220px;padding:14px 16px;border:1px solid #526481;border-radius:12px;background:#111d34;color:#f4f7ff;box-shadow:0 14px 35px #0009;pointer-events:none;font-size:13px;line-height:1.55}
+.hm-tooltip[hidden]{display:none}
+.hm-tooltip .hm-tooltip-name{font-weight:800;font-size:15px;overflow-wrap:anywhere}
+.hm-tooltip .hm-tooltip-code{color:#9eb1d1;font-size:11px;margin-bottom:9px}
+.hm-tooltip .hm-tooltip-row{display:flex;justify-content:space-between;gap:16px;margin-top:5px}
+.hm-tooltip .hm-tooltip-row span:first-child{color:#b1bfd6}
+.hm-tooltip .hm-tooltip-row strong{text-align:right}
+.hm-tooltip .hm-tooltip-note{margin-top:9px;color:#93a7c7;font-size:11px}
+</style></head><body><header><div class="logo">◈ PORTFOLIO <span>LAB</span></div><div class="pill">● 개인 투자 대시보드</div></header><main><div class="eyebrow">INVESTMENT INTELLIGENCE</div><h1>내 포트폴리오 한눈에 보기</h1><div class="muted">보유 자산 분석 · 종목별 성과 · AI 리서치 스타일 리포트</div><div class="notice">서버 연결 버전 · 보유 정보는 Neon PostgreSQL에 저장됩니다. 시세는 Yahoo Finance 비공식 데이터(지연·오류 가능)를 조회하며, AI 분석은 API 키 설정 시 활성화됩니다.</div><div class="stats"><div class="card"><div class="muted">총 평가금액 (KRW)</div><div class="metric" id="total">—</div><div class="muted">보유 주식 현재 평가액</div></div><div class="card"><div class="muted">총 투자원금 (KRW)</div><div class="metric" id="cost">—</div><div class="muted">매수단가 × 수량</div></div><div class="card"><div class="muted">평가손익 (KRW)</div><div class="metric" id="pnl">—</div><div class="muted">수수료·세금 제외</div></div><div class="card"><div class="muted">총 수익률</div><div class="metric" id="roi">—</div><div class="muted">원금 대비 평가손익</div></div></div><section class="heatmap-card" aria-label="포트폴리오 수익률 트리맵"><div class="heatmap-head"><div><h2>포트폴리오 수익률 맵</h2><div class="muted">박스 면적 = 평가금액 비중 · 색상 = 매수가 대비 수익률</div></div><div class="heatmap-legend"><span><i style="background:#16876c"></i>수익</span><span><i style="background:#ba3e57"></i>손실</span><span><i style="background:#526079"></i>보합</span></div></div><div id="heatmap" role="group" aria-label="보유 종목 평가금액 비중과 수익률, 각 박스를 선택하면 상세정보를 볼 수 있습니다"></div><div id="heatmapTooltip" class="hm-tooltip" role="tooltip" hidden></div><div class="hm-note" id="heatmapNote">시세 조회 전에는 박스가 표시되지 않습니다. 원화 환산은 현재 환율 기준이며 실제 환차손익과 다를 수 있습니다.</div></section><div class="layout"><section class="card"><h2>자산 구성 비율</h2><div class="muted">종목별 현재 평가금액 기준</div><div id="allocation" class="bar"></div><div id="legend" class="legend"></div></section><section class="card"><h2>종목별 평가손익</h2><div id="profitBars"></div></section></div><section class="card" style="margin-top:17px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h2>보유 종목</h2><div class="actions"><button class="secondary" onclick="refreshQuotes()">시세 갱신</button><button class="secondary" onclick="exportData()">데이터 내보내기</button><button class="secondary" onclick="document.getElementById('file').click()">불러오기</button><input id="file" type="file" accept="application/json" style="display:none" onchange="importData(event)"></div></div><div class="tablewrap"><table><thead><tr><th>종목</th><th>수량</th><th>평균 매수가</th><th>현재가</th><th>평가금액</th><th>수익률</th><th>관리</th></tr></thead><tbody id="holdings"></tbody></table></div></section><section class="card" style="margin-top:17px"><h2 id="formTitle">종목 추가</h2><div class="formgrid"><div><label>티커</label><input id="ticker" placeholder="QQQ / 005930.KS"></div><div><label>보유 수량</label><input id="qty" type="number" min="0.000001" step="any" placeholder="2"></div><div><label>평균 매수가 (종목 통화)</label><input id="avg" type="number" min="0.000001" step="any" placeholder="400"></div><div><label>현재가</label><input id="price" type="text" value="시세 자동 조회" disabled></div></div><div class="actions" style="margin-top:16px"><button onclick="saveHolding()" id="saveBtn">종목 저장</button><span class="muted" id="quoteStatus" role="status">현재가는 시세 제공자에서 자동 조회됩니다. 거래소 마감 후에는 종가가 표시될 수 있습니다.</span><button class="secondary" onclick="resetForm()">입력 초기화</button></div></section><section class="card" style="margin-top:17px"><h2>종목명 검색</h2><div class="muted">주요 종목 한글명 또는 티커를 검색하세요. 전체 상장종목 목록은 아닙니다.</div><div class="formgrid" style="margin-top:12px"><div><label>종목명 또는 코드</label><input id="symbolQuery" placeholder="현대차 / 삼성전자 / QQQ" oninput="searchSymbols()"></div><div><label>검색 결과</label><select id="symbolResults" onchange="selectSymbol()"><option value="">검색 후 선택</option></select></div></div><div class="muted" id="symbolHelp" style="margin-top:10px">검색 결과를 선택하면 종목 추가 및 거래 입력에 티커가 채워집니다.</div></section>
 <section class="card" style="margin-top:17px;display:none" aria-hidden="true"><h2>매수·매도 내역 관리</h2><div class="muted">매수·매도 거래를 기록하면 보유 수량과 평균 매수가를 자동 계산합니다. 매수 수수료는 취득원가에 반영되며, 매도 손익은 이동평균법 기준입니다.</div><div class="formgrid" style="margin-top:16px"><div><label>티커</label><input id="tradeTicker" placeholder="005380.KS"></div><div><label>거래 종류</label><select id="tradeSide"><option value="BUY">매수</option><option value="SELL">매도</option></select></div><div><label>거래일</label><input id="tradeDate" type="date"></div><div><label>수량</label><input id="tradeQty" type="number" step="any" min="0" placeholder="1"></div><div><label>체결 단가 (종목 통화)</label><input id="tradePrice" type="number" step="any" min="0" placeholder="100000"></div><div><label>수수료 (종목 통화)</label><input id="tradeFee" type="number" step="any" min="0" value="0"></div></div><div class="actions" style="margin-top:14px"><button onclick="submitTrade()" id="tradeSave">거래 기록 저장</button><span id="tradeStatus" class="muted">기존 종목은 첫 거래 등록 시 초기 보유잔고로 기록됩니다.</span></div><div class="tablewrap" style="margin-top:18px"><table><thead><tr><th>날짜</th><th>종목</th><th>구분</th><th>수량</th><th>단가</th><th>수수료</th><th>실현손익</th></tr></thead><tbody id="tradeHistory"><tr><td colspan="7">거래 기록을 불러오는 중...</td></tr></tbody></table></div><div class="muted" style="margin-top:12px">기존 보유잔고의 기록일은 최초 거래내역 기능 사용일이며, 실제 매수일이 아닙니다. 매도 실현손익에는 세금과 환율 변동이 반영되지 않습니다.</div></section><div class="layout"><section class="card"><h2>✦ 종목 분석 어시스턴트</h2><div class="muted">방송의 AI 질문 기능을 참고한 데모입니다.</div><label>분석할 종목</label><select id="analyzeTicker"></select><label>질문</label><textarea id="question" rows="3">이 종목의 수익률을 분석하고, 상승 또는 하락 원인을 조사하려면 무엇을 확인해야 할까?</textarea><button style="margin-top:12px" onclick="analyze()">분석하기</button><div id="analysis" class="report" style="margin-top:18px"></div></section><section class="card"><h2>▤ 딥 리서치 보고서</h2><div class="muted">보유 데이터에 근거한 포트폴리오 진단 (뉴스·재무정보 실시간 조회 없음)</div><button style="margin-top:20px" onclick="deepResearch()">보고서 생성</button><div id="research" class="report" style="margin-top:20px">버튼을 누르면 집중도, 종목별 성과, 확인해야 할 리스크를 정리합니다.</div></section></div></main><footer>Portfolio Lab · 클라우드 개인용 · 실제 금융기관 또는 허성범 씨와 무관한 비공식 재현 프로젝트</footer><script>
 const colors=['#7798ff','#59d4ae','#f7b66d','#d18cff','#fb7c96','#68c6ed'];
 let items=[],edit=-1,fx=null,quoteBusy=false;
@@ -131,13 +143,16 @@ function splitTreemap(entries,x,y,w,h,out){
  if(w>=h){const width=w*ratio;splitTreemap(left,x,y,width,h,out);splitTreemap(right,x+width,y,w-width,h,out)}
  else{const height=h*ratio;splitTreemap(left,x,y,w,height,out);splitTreemap(right,x,y+height,w,h-height,out)}
 }
+let heatmapEntries=[];
 function renderHeatmap(){
+ hideHeatmapTooltip();
  const root=$('heatmap');if(!root)return;
  const entries=items.map(item=>{
   const currency=cur(item.ticker),market=value(item),amount=market===null?null:krw(market,currency);
   const roi=market===null||item.avg<=0?null:(item.price/item.avg-1)*100;
-  return {ticker:item.ticker,name:displayName(item.ticker),amount,roi};
+  return {ticker:item.ticker,name:displayName(item.ticker),amount,roi,qty:item.qty,avg:item.avg,price:item.price,currency};
  }).filter(x=>Number.isFinite(x.amount)&&x.amount>0&&Number.isFinite(x.roi)).sort((a,b)=>b.amount-a.amount);
+ heatmapEntries=entries;
  const missing=items.length-entries.length;
  if(!entries.length){root.innerHTML='<div class="hm-empty">등록된 종목의 시세와 환율이 조회되면 수익률 맵이 표시됩니다.</div>';$('heatmapNote').textContent=`${missing}개 종목의 시세 또는 환율 확인이 필요합니다.`;return}
  const width=root.clientWidth||900,height=root.clientHeight||480,total=entries.reduce((a,b)=>a+b.amount,0);
@@ -145,10 +160,74 @@ function renderHeatmap(){
  root.innerHTML=boxes.map(t=>{
   const share=t.amount/total*100,small=t.w<130||t.h<85,tiny=t.w<76||t.h<48;
   const detail=`${t.name} (${t.ticker}) · 평가금액 ${money(t.amount,'KRW')} · 비중 ${share.toFixed(2)}% · 수익률 ${pct(t.roi)}`;
-  return `<div class="hm-tile ${tiny?'hm-tiny':small?'hm-small':''}" title="${safe(detail)}" aria-label="${safe(detail)}" style="left:${(t.x/width*100).toFixed(5)}%;top:${(t.y/height*100).toFixed(5)}%;width:${(t.w/width*100).toFixed(5)}%;height:${(t.h/height*100).toFixed(5)}%;background:${heatmapColor(t.roi)}"><div class="hm-name">${safe(t.name)}</div><div class="hm-return">${pct(t.roi)}</div><div class="hm-share">${share.toFixed(1)}% · ${money(t.amount,'KRW')}</div></div>`
+  return `<div tabindex="0" role="button" data-ticker="${safe(t.ticker)}" aria-describedby="heatmapTooltip" class="hm-tile ${tiny?'hm-tiny':small?'hm-small':''}" title="${safe(detail)}" aria-label="${safe(detail)}" style="left:${(t.x/width*100).toFixed(5)}%;top:${(t.y/height*100).toFixed(5)}%;width:${(t.w/width*100).toFixed(5)}%;height:${(t.h/height*100).toFixed(5)}%;background:${heatmapColor(t.roi)}"><div class="hm-name">${safe(t.name)}</div><div class="hm-return">${pct(t.roi)}</div><div class="hm-share">${share.toFixed(1)}% · ${money(t.amount,'KRW')}</div></div>`
  }).join('');
  $('heatmapNote').textContent=`${entries.length}개 종목 반영${missing?' · '+missing+'개 종목 시세/환율 미조회로 제외':''} · 면적은 현재 원화 평가금액 기준 · 수익률은 종목 통화 기준(환차손익 제외) · 시세 지연 가능`;
 }
+// A single tooltip is shared by all tiles. Touch users can tap a tile to pin it.
+let pinnedHeatmapTicker=null;
+function hideHeatmapTooltip(){
+ const tip=$('heatmapTooltip');if(tip)tip.hidden=true;
+ pinnedHeatmapTicker=null;
+}
+function showHeatmapTooltip(tile,anchor){
+ const entry=heatmapEntries.find(x=>x.ticker===tile.dataset.ticker),tip=$('heatmapTooltip');
+ if(!entry||!tip)return;
+ const sum=heatmapEntries.reduce((a,x)=>a+x.amount,0),share=sum>0?entry.amount/sum*100:0;
+ const cost=entry.qty*entry.avg,profit=(entry.price-entry.avg)*entry.qty;
+ const detailRows=[
+  ['보유 수량',String(entry.qty)],
+  ['평균 매수가',money(entry.avg,entry.currency)],
+  ['현재가',money(entry.price,entry.currency)],
+  ['평가금액 (KRW)',money(entry.amount,'KRW')],
+  ['자산 비중',share.toFixed(2)+'%'],
+  ['평가손익 ('+entry.currency+')',money(profit,entry.currency)],
+  ['수익률',pct(entry.roi)]
+ ];
+ tip.innerHTML='<div class="hm-tooltip-name">'+safe(entry.name)+'</div><div class="hm-tooltip-code">'+safe(entry.ticker)+'</div>'+detailRows.map(([label,val])=>'<div class="hm-tooltip-row"><span>'+safe(label)+'</span><strong>'+safe(val)+'</strong></div>').join('')+'<div class="hm-tooltip-note">수익률은 종목 통화 기준 · 원화 평가액은 현재 환율 기준</div>';
+ tip.hidden=false;
+ const r=tile.getBoundingClientRect(),margin=10;
+ const a=anchor||{clientX:r.left+r.width/2,clientY:r.top+r.height/2};
+ const tw=tip.offsetWidth,th=tip.offsetHeight;
+ const left=Math.max(margin,Math.min(window.innerWidth-tw-margin,a.clientX+14));
+ const top=(a.clientY+18+th<=window.innerHeight-margin)?a.clientY+18:Math.max(margin,a.clientY-th-14);
+ tip.style.left=left+'px';tip.style.top=top+'px';
+}
+const heatmapRoot=$('heatmap');
+heatmapRoot.addEventListener('pointerover',e=>{
+ if(e.pointerType==='touch'||pinnedHeatmapTicker)return;
+ const tile=e.target.closest('.hm-tile');if(tile)showHeatmapTooltip(tile,e);
+});
+heatmapRoot.addEventListener('pointermove',e=>{
+ if(e.pointerType==='touch'||pinnedHeatmapTicker)return;
+ const tile=e.target.closest('.hm-tile');if(tile)showHeatmapTooltip(tile,e);
+});
+heatmapRoot.addEventListener('pointerout',e=>{
+ if(pinnedHeatmapTicker)return;
+ const tile=e.target.closest('.hm-tile');
+ if(tile&&!tile.contains(e.relatedTarget))hideHeatmapTooltip();
+});
+heatmapRoot.addEventListener('focusin',e=>{
+ const tile=e.target.closest('.hm-tile');if(tile)showHeatmapTooltip(tile);
+});
+heatmapRoot.addEventListener('focusout',e=>{
+ if(e.target.closest('.hm-tile')&&!pinnedHeatmapTicker)hideHeatmapTooltip();
+});
+heatmapRoot.addEventListener('click',e=>{
+ const tile=e.target.closest('.hm-tile');if(!tile)return;
+ if(pinnedHeatmapTicker===tile.dataset.ticker){hideHeatmapTooltip();return}
+ pinnedHeatmapTicker=tile.dataset.ticker;showHeatmapTooltip(tile);
+});
+heatmapRoot.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){hideHeatmapTooltip();return}
+ if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('hm-tile')){e.preventDefault();e.target.click()}
+});
+document.addEventListener('pointerdown',e=>{
+ if(!e.target.closest('.hm-tile')&&!e.target.closest('#heatmapTooltip'))hideHeatmapTooltip();
+});
+window.addEventListener('scroll',hideHeatmapTooltip,{passive:true});
+window.addEventListener('resize',hideHeatmapTooltip,{passive:true});
+
 const baseRender=render;
 render=function(){baseRender();renderHeatmap()};
 if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>renderHeatmap()).observe($('heatmap'))}
